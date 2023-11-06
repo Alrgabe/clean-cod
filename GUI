@@ -1,0 +1,1439 @@
+import sys
+from PIL import Image,ImageTk
+from customtkinter import ( StringVar ,CTkButton, CTkImage , CTkFrame , CTkEntry ,CTkOptionMenu , CTkRadioButton, CTkTextbox , CTkSlider, CTkLabel)
+from tkinter import (Label , Frame , 
+                     RIGHT , TOP , 
+                     LEFT , BOTTOM , 
+                     X , Y , CENTER , GROOVE , END)
+from tkinter import ttk ,messagebox
+from os import path
+from PIL import Image,ImageTk
+import sqlite3 , threading
+from config import Databeas_
+from socket import create_connection
+from connections import connection_obj
+# Animation labels
+class AnimatedImagePopup:
+    image_tow = False
+    def get_path(file_name , dir):
+            current_dir = sys.path[0]
+            file_path = path.join(current_dir , dir , file_name)
+            return file_path
+    
+    def get_image(self , file_name , dir,width=24,height=25):
+            current_dir = sys.path[0]
+            file_path = path.join(current_dir , dir , file_name)
+            img = Image.open(file_path)
+            img = img.resize((width,height) , Image.ANTIALIAS)
+            photo = ImageTk.PhotoImage(img)
+            return photo
+        
+    def __init__(self, root,label , height , width , file , icon_reshow , icon_tow=None):
+        self.root = root
+        self.start_loop = True  
+        self.label = label
+        animated_image_path = AnimatedImagePopup.get_path(file,"icons")
+        self.icon_reshow = self.get_image(icon_reshow,"icons" , 30 , 30)
+        if icon_tow != None:
+            self.icon_reshowTow = self.get_image(icon_tow,"icons" , 30 , 30)
+        # تحميل الصورة المتحركة
+        self.image = Image.open(animated_image_path)
+        self.frames = []
+        try:
+            while self.start_loop:
+                frame = self.image.resize((width, height))
+                self.frames.append(ImageTk.PhotoImage(frame))
+                self.image.seek(len(self.frames)) 
+        except:
+            pass
+
+        self.index = 0
+    # تحديث الصورة في الواجهة لتعمل على شكل واجهة انتظار تدور
+    def update_image(self):
+        if self.start_loop:
+            self.index = (self.index + 1) % len(self.frames)
+            self.label.configure(image=self.frames[self.index])
+            self.root.after(30, self.update_image)  # تخزين معرّف الدالة after
+        else:
+            if self.image_tow :
+                self.label.configure(image=self.icon_reshowTow )
+                self.label.imtk = self.icon_reshowTow 
+            else:
+                self.label.configure(image=self.icon_reshow)
+                self.label.imtk = self.icon_reshow
+    
+    def start(self):
+        self.update_image()
+    def stop(self):
+        self.start_loop = False
+
+#============== custom textbox with icon =============!
+class TextBox:
+    #create Textbox with icon if you have an object from this class
+    def __init__(self, **kwargs):
+        self.parameters = kwargs
+        self.master = self.get_parameter("master" , "none")
+        self.Text = self.get_parameter("text" , "text")
+        self.bg = self.get_parameter("bg" , "#ddd")
+        self.color = self.get_parameter("color" , "#000")
+        self.border_width = self.get_parameter("border_width" , "1")
+        self.border_color = self.get_parameter("border_color" , "#000")
+        self.icon = self.get_parameter("icon" , "none")
+        self.placeholder = self.get_parameter("placeholder" , " ")
+        self.width = self.get_parameter("width" , 100)
+        self.padx = self.get_parameter("padx" , 0)
+        self.ipadx = self.get_parameter("ipadx" , 0)
+        self.pady = self.get_parameter("pady" , 0)
+        self.ipady = self.get_parameter("ipady" , 0)
+        self.side = self.get_parameter("side" , None)
+        self.type = self.get_parameter("type" , None)
+        self.icon_bg =  self.get_parameter("icon_bg" , "#001e42")
+        self.anchor =  self.get_parameter("anchor" , "center")
+        #
+        
+        user_name_text_box_block = CTkFrame(self.master , fg_color=self.bg , border_color=self.border_color , border_width=self.border_width)
+        user_name_text_box_block.pack(padx=self.padx,ipadx=self.ipadx , side=self.side , pady=self.pady , ipady=self.ipady , anchor=self.anchor)
+        
+        
+        self.TextBox = CTkEntry(user_name_text_box_block ,justify="right" , placeholder_text=self.placeholder , width=self.width , fg_color=self.bg , text_color=self.color , border_width=0, font=("Segoe UI Semilight" , 13 , "bold"))# user name Text box
+        self.TextBox.grid(row=0,column=0, pady=10, padx=1)
+        
+        user_name_icon = Label(user_name_text_box_block , image=self.icon, bg=self.bg)
+        user_name_icon.grid(row=0,column=1,sticky="E")
+        user_name_icon.imtk = self.icon
+        
+        if self.type != None:
+            self.TextBox.bind("<KeyRelease>", lambda x:self.TextBoxType(self.type))
+        
+    # get data that inside the textbox  
+    def get(self):
+        result = self.TextBox.get()
+        return result
+        
+    # check if the data that inside textbox is Empty or not
+    def IsEmpty(self):
+        result = self.TextBox.get()
+        if result == "":return True
+        else: return False
+        
+    # check if the data that inside textbox is number or not
+    def IsNumber(self):
+        result = self.TextBox.get()
+        if result.isdigit:return True
+        else: return False
+        
+    def TextBoxType(self , Texttype):
+        if Texttype == "number":
+            textInside = self.TextBox.get()
+            self.TextBox.delete(0 , END)
+            for num in textInside:
+                if not num.isdigit():
+                    textInside = textInside.replace(num, "")
+            self.TextBox.insert(0 , textInside)
+        
+        elif Texttype == "string":
+            textInside = self.TextBox.get()
+            self.TextBox.delete(0 , END)
+            for num in textInside:
+                if not num.isalpha():
+                    textInside = textInside.replace(num, "")
+            self.TextBox.insert(0 , textInside)
+            
+    def insertIn(self,text):
+        self.TextBox.insert(0,text)
+    # check what parameters that you put them between brackets of the objec
+    def get_parameter(self, parameter_name , else_text):
+        if parameter_name in self.parameters:
+            return self.parameters[parameter_name]
+        else:
+            return else_text
+
+#============== custom button with icon =============!
+class Button_Icon:
+    #create button with icon if you have an object from this class
+    def __init__(self , **kwargs):
+        self.parameters = kwargs
+        self.master = self.get_parameter("master" , "none")
+        self.Text = self.get_parameter("text" , "text")
+        self.bg = self.get_parameter("bg" , "#ddd")
+        self.color = self.get_parameter("color" , "#000")
+        self.border_width = self.get_parameter("border_width" , 1)
+        self.border_color = self.get_parameter("border_color" , "#000")
+        self.icon = self.get_parameter("icon" , "none")
+        self.width = self.get_parameter("width" , 100)
+        self.padx = self.get_parameter("padx" , 0)
+        self.ipadx = self.get_parameter("ipadx" , 0)
+        self.pady = self.get_parameter("pady" , 0)
+        self.ipady = self.get_parameter("ipady" , 0)
+        self.icon_bg =  self.get_parameter("icon_bg" , "#001e42")
+        self.side =  self.get_parameter("side" , None)
+    
+        
+        Main_Frame = CTkFrame(self.master  , fg_color=self.bg, border_color=self.border_color , border_width=self.border_width)
+        Main_Frame.pack(padx=self.padx ,ipadx=self.ipadx ,side=self.side ,pady=self.pady )
+        
+        
+        button_icon = Label(Main_Frame , image=self.icon, bg=self.bg)
+        button_icon.grid(row=0,column=1 , padx=2)
+        button_icon.imtk = self.icon
+        
+        self.button = CTkButton(Main_Frame ,text_color=self.color, text=self.Text , width=self.width , fg_color=self.bg, border_width=0 , font=("Segoe UI Semilight" , 10 , "bold"))# user name Text box
+        self.button.grid(row=0,column=0 , pady=10)
+        
+       
+    # check what parameters that you put them between brackets of the objec
+    def get_parameter(self, parameter_name , else_text):
+        if parameter_name in self.parameters:
+            return self.parameters[parameter_name]
+        else:
+            return else_text
+
+#============== custom Label with icon =============!
+class Label_Icon:
+    #create label with icon if you have an object from this class
+    def __init__(self , **kwargs):
+        self.parameters = kwargs
+        self.master = self.get_parameter("master" , "none")
+        self.Text = self.get_parameter("text" , "text")
+        self.bg = self.get_parameter("bg" , "#ddd")
+        self.color = self.get_parameter("color" , "#000")
+        self.border_width = self.get_parameter("border_width" , 1)
+        self.border_color = self.get_parameter("border_color" , "#000")
+        self.icon = self.get_parameter("icon" , "none")
+        self.width = self.get_parameter("width" , 100)
+        self.padx = self.get_parameter("padx" , 0)
+        self.ipadx = self.get_parameter("ipadx" , 0)
+        self.pady = self.get_parameter("pady" , 0)
+        self.ipady = self.get_parameter("ipady" , 0)
+        self.icon_bg =  self.get_parameter("icon_bg" , "#001e42")
+        self.side =  self.get_parameter("side" , None)
+        self.anchor =  self.get_parameter("anchor" , "center")
+        self.font =  self.get_parameter("font" , ("Segoe UI Semilight" , 10 , "bold" ))
+    
+        
+        Main_Frame = CTkFrame(self.master  , fg_color=self.bg, border_color=self.border_color , border_width=self.border_width)
+        Main_Frame.pack(padx=self.padx ,ipadx=self.ipadx ,side=self.side ,pady=self.pady, anchor =self.anchor )
+        
+        
+        self.Label_icon = Label(Main_Frame , image=self.icon, bg=self.bg)
+        self.Label_icon.grid(row=0,column=1 , padx=2)
+        self.Label_icon.imtk = self.icon
+        
+        self.Label = CTkLabel(Main_Frame ,text_color=self.color, text=self.Text , width=self.width  , fg_color=self.bg , font=self.font)# user name Text box
+        self.Label.grid(row=0,column=0 , pady=10)
+        
+    # check what parameters that you put them between brackets of the objec
+    def get_parameter(self, parameter_name , else_text):
+        if parameter_name in self.parameters:
+            return self.parameters[parameter_name]
+        else:
+            return else_text
+
+#============== login Gui class =============!
+class LoginUi(Frame):
+    LoginState = False
+    HomeUI = None
+    SQL , connect = Databeas_.checkDatabeasIsExsist()
+    # get path of the inmage that give its name and folder and init it to imageTk
+    def get_image(self , file_name , dir,width=24,height=25):
+        current_dir = sys.path[0]
+        file_path = path.join(current_dir , dir , file_name)
+        img = Image.open(file_path)
+        img = img.resize((width,height) , Image.ANTIALIAS)
+        photo = ImageTk.PhotoImage(img)
+        return photo
+    
+    #show login screen when you have object from this class
+    def __init__(self ,*args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config(bg="#003069")
+        arrow_icon = self.get_image("icons8-arrow-48.png" , "icons")
+        look_icon = self.get_image("icons8-password-48.png" , "icons",30,30)
+        user_icon = self.get_image("icons8-user-48.png" , "icons",30,30)
+        side_background = self.get_image("small_bg.png" , "images",800,450)
+        forgotPassword_icon = self.get_image("icons8-forgot-password-48.png" , "icons",20,20)
+        
+        
+        
+        #=============== side background block =================#
+        
+        self.Left_sider_background = Frame(self, bg="#003069")
+        self.Left_sider_background.pack(fill="y" , side="left")
+        
+        
+        background_image_login_frame = Label(self.Left_sider_background , width=700 , bg="#003069",
+                                             image=side_background )
+        background_image_login_frame.pack(fill="x" , pady=100)
+        background_image_login_frame.imtk = side_background
+        
+        
+        #=============== login side block =================#003069
+        self.Rigth_Side_Login_Form = Frame(self ,bg="#003069")
+        self.Rigth_Side_Login_Form.pack(fill="x" , side="right", pady=200 , expand=False)
+        
+        
+        #=============== user name block =================#
+        self.user_NameTextBox = TextBox(master =self.Rigth_Side_Login_Form ,placeholder="اسم المستخدم",
+                width =350 ,icon= user_icon ,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069",ipadx=4)
+        
+        # self.user_NameTextBox.TextBox.configure(placeholder_text="tedt")
+         #=============== password block =================#
+        self.password_textBox = TextBox(master =self.Rigth_Side_Login_Form , placeholder="كلمة المرور", 
+                width =350 ,icon= look_icon ,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069" , pady=40,ipadx=4)
+        
+        
+        
+         #=============== login button block =================#
+        login_button_block = CTkFrame(self.Rigth_Side_Login_Form , fg_color="#003069", border_color="#a6a6a6" , border_width=1)
+        login_button_block.pack(padx=10 ,ipadx=3 ,side=RIGHT)
+        
+        
+        login_button_icon = Label(login_button_block , image=arrow_icon, bg="#003069")
+        login_button_icon.grid(row=0,column=0 , padx=2)
+        login_button_icon.imtk = arrow_icon
+        # user name Text box
+        self.login_button = CTkButton(login_button_block , text="تسجيل" 
+                                      ,text_color="#A6A6A6" , width=180
+                                      , fg_color="#003069", border_width=0 
+                                      ,font=("Segoe UI Semilight" , 0 , "bold")
+                                      ,command=lambda:self.CheckLoginData()
+                                      )
+        self.login_button.grid(row=0,column=1 , pady=10)
+        
+        
+        #==================== forgot password button ================!
+        
+        
+        forgotPassword_button_block = CTkFrame(self.Rigth_Side_Login_Form , fg_color="#003069", border_color="#a6a6a6" , border_width=1)
+        forgotPassword_button_block.pack(padx=10 ,ipadx=3 ,side=LEFT)
+        
+        
+        forgotPassword_button_icon = Label(forgotPassword_button_block , image=forgotPassword_icon, bg="#003069")
+        forgotPassword_button_icon.grid(row=0,column=0 , padx=2)
+        forgotPassword_button_icon.imtk = forgotPassword_icon
+        
+        self.forgotPassword_button = CTkButton(forgotPassword_button_block ,text_color="#A6A6A6", text="نسيت كلمة السر" , width=80, fg_color="#003069", border_width=0 , font=("Segoe UI Semilight" , 10 , "bold"))# user name Text box
+        self.forgotPassword_button.grid(row=0,column=1 , pady=10)
+    
+    def CheckLoginData(self):
+        # posh All textbox inside dectionary to check is empty
+        TextBoxes = {"اسم المستخدم":self.user_NameTextBox ,
+                     "كلمة المرور":self.password_textBox ,
+                     }
+        # loop on textbox dectionary is empty or not
+        for key , Textbox in TextBoxes.items():
+            if Textbox.IsEmpty():
+                messagebox.showinfo("خطا في الادخال" , f"الرجاء كتابة {key}")
+                break
+        # check data from db is there is like it or not
+        query = self.SQL.execute(f"SELECT * FROM `users` WHERE UserName='{self.user_NameTextBox.TextBox.get()}' AND password='{self.password_textBox.TextBox.get()}';")
+        self.connect.commit()
+        rows = query.fetchall()
+        if len(rows) > 0:
+            self.pack_forget()
+            self.HomeUI.pack(fill="both")
+            self.HomeUI.UserLoginingIn.Label.configure(text=rows[0][4])
+        else:messagebox.showerror("خطأ" , "البيانات التي ادخلتها غير صحيحة")
+  
+#============== First sign up Gui class =============!
+class FirsUI(Frame):
+    # get databeas connection
+    SQL , connect = Databeas_.checkDatabeasIsExsist()
+    HomeUi = None
+    
+    # get image and init to ImageTk
+    def get_image(self , file_name , dir,width=24,height=25):
+        current_dir = sys.path[0]
+        file_path = path.join(current_dir , dir , file_name)
+        img = Image.open(file_path)
+        img = img.resize((width,height) , Image.ANTIALIAS)
+        photo = ImageTk.PhotoImage(img)
+        return photo
+    # init this class when you have an object
+    def __init__(self ,*args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.config(bg="#003069")
+        # icons of this screen
+        arrow_icon = self.get_image("icons8-arrow-48.png" , "icons")
+        look_icon = self.get_image("icons8-password-48.png" , "icons",30,30)
+        user_icon = self.get_image("icons8-user-48.png" , "icons",30,30)
+        side_background = self.get_image("small_bg.png" , "images",800,450)
+        Welcome_icon = self.get_image("icons8-forgot-password-48.png" , "icons",30,30)
+        Name = self.get_image("icons8-name-48.png" , "icons",30,30)
+        question = self.get_image("icons8-question-48.png" , "icons",30,30)
+        
+        
+        
+        #=============== side background block =================#
+        
+        self.Left_sider_background = Frame(self, bg="#003069")
+        self.Left_sider_background.pack(fill="y" , side="left")
+        
+        # background side image 
+        background_image_login_frame = Label(self.Left_sider_background , width=700 , bg="#003069",
+                                             image=side_background )
+        background_image_login_frame.pack(fill="x" , pady=100)
+        background_image_login_frame.imtk = side_background
+        
+        
+        #=============== login side block =================#003069
+        self.Rigth_Side_Login_Form = Frame(self ,bg="#003069")
+        self.Rigth_Side_Login_Form.pack(fill="both" , side="right", pady=20 , expand=False)
+        
+        
+        # welcom label
+        welcomLabel = Label_Icon(master=self.Rigth_Side_Login_Form , 
+                                            text=" TVS مرحبا بك في نظام", 
+                                            width =180 , icon= Welcome_icon,
+                                            border_width=0 , bg="#003069" ,
+                                            color="#FCF5ED",
+                                            pady=12,padx=10,ipadx=4,
+                                            font=("Segoe UI Semilight" , 22 , "bold")
+                                            )
+       
+        # init loader gif in loader Label
+        self.FirstAni = AnimatedImagePopup(self , welcomLabel.Label_icon , 100 , 100 , "wired-outline-1872-small-cute-monster.gif", "icons8-wired-network-connection-48.png")
+        self.FirstAni.start()
+        
+        
+        # descrip what user do in this screen
+        Descrip = Label(self.Rigth_Side_Login_Form , text="انشئ حسابك الاول داخل النظام" , fg="#FCF5ED" , bg="#003069" , font=("Segoe UI Semilight" , 9 , "bold"))
+        Descrip.pack(fill=X , pady=20)
+        
+        #=============== user name block =================#
+        self.user_NameTextBox = TextBox(master =self.Rigth_Side_Login_Form ,placeholder="اسم المستخدم",
+                width =350 ,icon= user_icon ,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069",ipadx=4, pady=1 , type="string")
+        
+        
+        # self.user_NameTextBox.TextBox.configure(placeholder_text="tedt")
+         #=============== password block =================#
+        self.password_textBox = TextBox(master =self.Rigth_Side_Login_Form , placeholder="كلمة المرور", 
+                width =350 ,icon= look_icon ,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069" , pady=15,ipadx=4)
+        
+        # # qustion to forgot password Textbox
+        self.QustionToForgotpassword_textBox = TextBox(master =self.Rigth_Side_Login_Form 
+                , placeholder="سؤال الامان", 
+                width =350 ,icon= question ,
+                border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069" , pady=1,ipadx=4 , type="string")
+        
+        # # Personal Name Textbox
+        self.PersonalName_textBox = TextBox(master =self.Rigth_Side_Login_Form 
+                , placeholder="الاسم الشخصي", 
+                width =350 ,icon= Name ,
+                border_color="#a6a6a6" ,
+                border_width=1 , bg="#003069" , pady=15,ipadx=4, type="string")
+        
+        
+        #  #=============== login button block =================#
+        login_button_block = CTkFrame(self.Rigth_Side_Login_Form , fg_color="#003069", border_color="#a6a6a6" , border_width=1)
+        login_button_block.pack(padx=10 ,ipadx=3 , pady=10)
+        
+        
+        #login button icon 
+        login_button_icon = Label(login_button_block , image=arrow_icon, bg="#003069")
+        login_button_icon.grid(row=0,column=0 , padx=2)
+        login_button_icon.imtk = arrow_icon
+        
+        #login button 
+        self.login_button = CTkButton(login_button_block , text="تسجيل" 
+                                      ,text_color="#A6A6A6" , width=250
+                                      , fg_color="#003069", border_width=0 
+                                      ,font=("Segoe UI Semilight" , 0 , "bold")
+                                      , command=lambda:self.SaveDataAndLogin()
+                                      )# user name Text box
+        self.login_button.grid(row=0,column=1 , pady=10)
+    #destroy this Frame if you run this def
+    def destroy(self):
+        self.FirstAni.stop()
+        super().destroy()  
+    
+     # sing up in first start   
+    # sign up when user open the system first time
+    def SaveDataAndLogin(self):
+        TextBoxes = {"اسم المستخدم":self.user_NameTextBox ,
+                     "كلمة المرور":self.password_textBox ,
+                     "سؤال الامان":self.QustionToForgotpassword_textBox ,
+                     "الاسم الشخصي":self.PersonalName_textBox ,
+                     }
+        for key , Textbox in TextBoxes.items():
+            if Textbox.IsEmpty():
+                messagebox.showinfo("خطا في الادخال" , f"الرجاء كتابة {key}")
+                break
+        
+        if messagebox.askyesno("تأكيد" , "هل انت متأكد من انك تريد تسجيل الدخول"):
+            query = self.SQL.execute(f"""
+            INSERT INTO `users` (UserName , password , question , fullName) VALUES ('{self.user_NameTextBox.get()}' , '{self.password_textBox.get()}' , '{self.QustionToForgotpassword_textBox.get()}' , '{self.PersonalName_textBox.get()}');
+                        """)
+            self.connect.commit()
+            if query.rowcount > 0:
+                self.HomeUi.pack(fill="both")
+                self.destroy()
+ 
+#============== home Gui class =============!
+class Home_UI(Frame):
+    # object to do databeas commands
+    databeasCommands = connection_obj
+    # get image and init to imageTk 
+    def get_image(self , file_name , dir,width=24,height=25):
+        current_dir = sys.path[0]
+        file_path = path.join(current_dir , dir , file_name)
+        img = Image.open(file_path)
+        img = img.resize((width,height) , Image.ANTIALIAS)
+        photo = ImageTk.PhotoImage(img)
+        return photo
+    
+    # show loader in center the screen
+    def ShowCenterLoader(self):
+        # get loader Label
+        LoaderLabel = Label(self , width=80 , height=80)
+        LoaderLabel.place(x=480, y=300)
+        # init loader gif in loader Label
+        Loader = AnimatedImagePopup(self , LoaderLabel , 100 , 80 , "system-regular-102-wifi.gif" ,"icons8-wired-network-connection-48.png" , "icons8-wifi-48.png" )
+        # start show loader gif in loader Label
+        Loader.start()
+        return Loader , LoaderLabel
+    # delete all items in tree to show new
+    def deleteItems(self , tree):
+        childre = tree.get_children()
+        for item in childre:
+            tree.delete(item)
+    # delete screen when user change screen
+    def changeScreen(self):
+        Screen = self.FatherOfAllScreen.winfo_children()
+        Screen[1].destroy()
+    # check is the data in the table without internet
+    def checkDataInTable(self , table , listOfData):
+        resulteCheck = True
+        AllTableRows = table.get_children()
+        for item in AllTableRows:
+            TableData = table.item(item)["values"]
+            if int(listOfData[1]) == TableData[1]:
+                messagebox.showerror("البيانات موجودة" ,"رقم اللوحة موجود مسبقا")
+                resulteCheck = False
+                break
+            elif int(listOfData[2]) == TableData[2]:
+                messagebox.showerror("البيانات موجودة" ,"رقم البطاقة موجود مسبقا")
+                resulteCheck = False
+                break
+            elif int(listOfData[4]) == TableData[4]:
+                messagebox.showerror("البيانات موجودة" ,"رقم الهاتف موجود مسبقا")
+                resulteCheck = False
+                break
+        return resulteCheck
+    # show Report screen when this def works
+    def AllReportingUi(self):
+        # delete screen that showd
+        try:self.changeScreen()
+        except:pass
+        
+        # convert title of screen 
+        self.MainTitleInScreen.configure(text = "ادارة البلاغات")
+        
+        # icons of this ui 
+        search_icon = self.get_image("icons8-search-48.png" , "icons",30,30)
+        
+        # ============== main Frame of Reporting Ui ==============! 
+        ReportingUiFrame = Frame(self.FatherOfAllScreen , bg="#e7dfdf")
+        ReportingUiFrame.pack(fill="both")
+        
+        
+        #Search block bytton and textbox
+        
+        SearchBlock = CTkFrame(ReportingUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        SearchBlock.pack(fill=X  , ipadx=10 , ipady=20)
+        
+        #search button
+        
+        self.SearchButton = CTkButton(SearchBlock , text="بحث" , width=60, font=("Segoe UI Semilight" , 10 , "bold"))
+        self.SearchButton.pack(side=RIGHT , ipady=10 , padx=10)
+        
+        # search textbox
+        
+        self.searchTextBox = TextBox(master=SearchBlock ,placeholder="... بحث عن بلاغ",
+                width =200 ,icon= search_icon ,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1 , side=RIGHT)
+        
+        # Delete Report Button
+        self.DeleteReport = CTkButton(SearchBlock , text="حذف البلاغ" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.DeleteReport.pack(side=LEFT , ipady=10, padx=20)
+        # ============== TreeView in main Frame of Reporting Ui ==============! 
+        
+        self.Reporting_table = ttk.Treeview(ReportingUiFrame)
+        self.Reporting_table['columns'] = ('#1', '#2', '#3' , '#4' , '#5')
+        
+        self.Reporting_table.heading('#0', text='ID' , anchor=CENTER)
+        self.Reporting_table.heading('#1', text='اسم السائق' , anchor=CENTER)
+        self.Reporting_table.heading('#2', text='رقم اللوحة' , anchor=CENTER)
+        self.Reporting_table.heading('#3', text='التاريخ' , anchor=CENTER)
+        self.Reporting_table.heading('#4', text='الوقت' , anchor=CENTER)
+
+        # تحديد عرض الأعمدة
+        self.Reporting_table.column('#0', width=60, stretch=True ,minwidth=50, anchor=CENTER)  
+        self.Reporting_table.column('#1', width=240 ,minwidth=50, anchor=CENTER)
+        self.Reporting_table.column('#2', width=200 ,minwidth=50, anchor=CENTER)
+        self.Reporting_table.column('#3', width=200 ,minwidth=50, anchor=CENTER)
+        self.Reporting_table.column('#4', width=200 ,minwidth=50, anchor=CENTER)
+        
+        self.Reporting_table.insert(parent='', index='end', iid=0, text='1', values=(1, 2, 3, 4))
+        self.Reporting_table.pack(side=BOTTOM , fill=X , pady=20)
+    
+# =================== driver screen And All its commands =============!
+    # edit item that selected in tree 
+    def EditSelectedItem(self , event):
+        self.DriverAdminat.pack(fill="both")
+        item = self.Driver_table.focus()
+        EditText = self.Driver_table.item(item["values"])
+        print(EditText)
+    # insert new driver 
+    def InsertNewDriver(self):
+        self.DriverAdminat.pack(fill=X)
+        #Save Data that inserted in textBoxes
+        def SaveNewDriver(self):
+            startSave = True
+            AllTextBoxes = {
+                "اسم السائق":self.DriverName ,
+                "رقم اللوحة":self.DriverBordNumber ,
+                "رقم البطاقة":self.DriverIdNumber ,
+                "نوع السيارة":self.DriverCarKind ,
+                "رقم الهاتف":self.DriverPhoneNumber 
+            }
+            for key , TextBox in AllTextBoxes.items():
+                if TextBox.IsEmpty():
+                    messagebox.showerror("ادخال خاطئ" , f"{key} الرجاء ادخال")
+                    startSave = False
+                    break
+            if startSave:
+                if messagebox.askyesno("تأكيد" ,"هل انت متاكد من انك تريد اضافة مستخدم"):
+                    listData = [self.DriverName.get() ,
+                                self.DriverBordNumber.get() ,
+                                self.DriverIdNumber.get() ,
+                                self.DriverCarKind.get() ,
+                                self.DriverPhoneNumber.get()
+                                ]
+                    # check new data if find it in table
+                    checkData = self.checkDataInTable(self.Driver_table , listData)
+                    if checkData:
+                        #start show loader in ui
+                        loader , Label = self.ShowCenterLoader()
+                        #start start send driver data to save in public databeas
+                        CheckInBackground = threading.Thread(target=self.databeasCommands.InsertNewDriver, args=(listData , loader , Label , self.Driver_table))
+                        CheckInBackground.start()
+        self.SaveDriverData.configure(command=lambda:SaveNewDriver(self))
+        # cancel Insert new driver 
+        self.CancelDriver.configure(command=lambda:self.DriverAdminat.pack_forget())
+    # show Drivers Data from public databeas
+    def ShowDriversInUI(self):
+        loader , Label = self.ShowCenterLoader()
+        CheckInBackground =threading.Thread(target=self.databeasCommands.GetDriversData, args=(self.Driver_table , loader , Label))
+        CheckInBackground.start()
+    # delete driver from public databeas
+    def OnUserSelectItemToDeleteDriver(self):
+        self.DriverAdminat.pack_forget()
+        # delete driver when user press delete
+        def deleteDriver(self):
+            if messagebox.askyesno("تأكيد" , "هل انت متأكد من انك تريد الحذف"):
+                self.DeleteDriver.configure(state="disable")
+                item = self.Driver_table.focus()
+                EditText = self.Driver_table.item(item)
+                id = EditText['text']
+                loader , Label = self.ShowCenterLoader()
+                CheckInBackground =threading.Thread(target=self.databeasCommands.DeleteDriver, args=(self.Driver_table , loader , Label , id , item))
+                CheckInBackground.start()
+        self.DeleteDriver.configure(state="normal" , command=lambda:deleteDriver(self))
+    
+        #DeleteDriver  
+    # show Drivers screen when this def works
+    def DriverInfoUi(self):
+        # delete screen that showd
+        try:self.changeScreen()
+        except:pass
+        
+        # convert title of screen 
+        self.MainTitleInScreen.configure(text = "ادارة بيانات السائقين")
+        
+        # icons of this ui 
+        search_icon = self.get_image("icons8-search-48.png" , "icons",30,30)
+        car_icon = self.get_image("icons8-car-48.png" , "icons",30,30)
+        IdCard_icon = self.get_image("icons8-id-card-48.png" , "icons",30,30)
+        CarBord_icon = self.get_image("icons8-licence-plate-48.png" , "icons",30,30)
+        Name_icon = self.get_image("icons8-user-48.png" , "icons",30,30)
+        phone_icon = self.get_image("icons8-phone-48.png" , "icons",30,30)
+        
+        # ============== main Frame of Driver Ui ==============! 
+        DriverUiFrame = Frame(self.FatherOfAllScreen , bg="#e7dfdf")
+        DriverUiFrame.pack(fill="both")
+        
+        
+        #Search block bytton and textbox
+        
+        SearchBlock = CTkFrame(DriverUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        SearchBlock.pack(fill=X  , ipadx=10 , ipady=20)
+        
+        #search button
+        
+        self.SearchButton = CTkButton(SearchBlock , text="بحث" , width=60, font=("Segoe UI Semilight" , 10 , "bold"))
+        self.SearchButton.pack(side=RIGHT , ipady=10 , padx=10)
+        
+        # search textbox
+        
+        self.searchTextBox = TextBox(master=SearchBlock ,placeholder="... بحث عن سائق",
+                width =200 ,icon= search_icon ,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1 , side=RIGHT)
+        
+        # Edit Driver Button
+        self.EditDriver = CTkButton(SearchBlock , state="disable", text="تعديل بيانات السائق" , width=150, font=("Segoe UI Semilight" , 10 , "bold"))
+        self.EditDriver.pack(side=LEFT , ipady=10, padx=10)
+        
+        # Delete Driver Button
+        self.DeleteDriver = CTkButton(SearchBlock , state="disable" , text="حذف سائق" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.DeleteDriver.pack(side=LEFT , ipady=10)
+        
+        # Add driver Button
+        self.InsertDriver = CTkButton(SearchBlock ,command=lambda:self.InsertNewDriver() , text="اضافة سائق" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.InsertDriver.pack(side=LEFT , ipady=10, padx=10)
+        # ============== TreeView in main Frame of Driver Ui ==============! 
+        
+        self.Driver_table = ttk.Treeview(DriverUiFrame)
+        self.Driver_table['columns'] = ('#1', '#2', '#3' , '#4' , '#5')
+        
+        self.Driver_table.heading('#0', text='ID' , anchor=CENTER)
+        self.Driver_table.heading('#1', text='اسم السائق' , anchor=CENTER)
+        self.Driver_table.heading('#2', text='رقم اللوحة' , anchor=CENTER)
+        self.Driver_table.heading('#3', text='رقم البطاقة' , anchor=CENTER)
+        self.Driver_table.heading('#4', text='نوع السيارة' , anchor=CENTER)
+        self.Driver_table.heading('#5', text='رقم الهاتف' , anchor=CENTER)
+
+        # تحديد عرض الأعمدة
+        self.Driver_table.column('#0', width=60, stretch=True ,minwidth=50, anchor=CENTER)  
+        self.Driver_table.column('#1', width=200 ,minwidth=50, anchor=CENTER)
+        self.Driver_table.column('#2', width=150 ,minwidth=50, anchor=CENTER)
+        self.Driver_table.column('#3', width=150 ,minwidth=50, anchor=CENTER)
+        self.Driver_table.column('#4', width=150 ,minwidth=50, anchor=CENTER)
+        self.Driver_table.column('#5', width=150 ,minwidth=50, anchor=CENTER)
+        
+        self.Driver_table.pack( fill=X , pady=5)
+        self.Driver_table.bind("<Double-1>", self.EditSelectedItem)
+        self.Driver_table.bind("<<TreeviewSelect>>", lambda x:self.OnUserSelectItemToDeleteDriver())
+        #============== drivers Adminate TextBoxes ===================!
+        
+        # driver Adminate Frame section bottom 
+        self.DriverAdminat = Frame(DriverUiFrame)
+        
+        #First side in  bottom section
+        FirstSide = Frame(self.DriverAdminat)
+        FirstSide.pack(side=RIGHT,pady=10 , padx=10 )
+        
+        # Driver Name TextBox
+        self.DriverName = TextBox(master=FirstSide ,placeholder="اسم السائق",
+                width =224 ,icon=Name_icon,color="#003069",type="string",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=5, padx=5 )
+        
+        # Driver Board Number TextBox
+        self.DriverBordNumber = TextBox(master=FirstSide ,placeholder="رقم اللوحة",
+                width =224 ,icon= CarBord_icon ,color="#003069",type="number",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=10, padx=5  )
+        
+        
+        #second side in  bottom section
+        SecondSide = Frame(self.DriverAdminat)
+        SecondSide.pack(side=RIGHT ,pady=10 , padx=10)
+        
+        # Driver phone Number TextBox
+        self.DriverPhoneNumber= TextBox(master=SecondSide ,placeholder="رقم الهاتف",
+                width =224 ,icon= phone_icon  ,color="#003069",type="number",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=5, padx=5 )
+        
+        # Driver Kind of car TextBox
+        self.DriverCarKind = TextBox(master=SecondSide ,placeholder="نوع السيارة",
+                width =224 ,icon= car_icon ,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=10, padx=5  )
+        
+        
+        #Therd side in  bottom section
+        TherdSide = Frame(self.DriverAdminat)
+        TherdSide.pack(side=RIGHT,pady=10 )
+        
+        # Driver ID Number TextBox
+        self.DriverIdNumber= TextBox(master=TherdSide ,placeholder="رقم البطاقة",
+                width =224 ,icon= IdCard_icon ,color="#003069",type="number",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, padx=5)
+        
+        # Cancel Driver Button
+        self.CancelDriver = CTkButton(TherdSide , text="إلغاء" , width=80, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.CancelDriver.pack(side=RIGHT,pady=13 , ipady=10 , padx=5)
+        
+        
+        # Save Driver Data Button
+        self.SaveDriverData = CTkButton(TherdSide , text="حفظ" , width=180, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.SaveDriverData.pack(side=RIGHT, pady=13 , ipady=10)
+        
+        self.ShowDriversInUI()
+        
+# ======================= Users screen And All its commands ===================!
+    # Edit user when user dblckick on item
+    def EditUserData(self):
+        item = self.Users_table.focus()
+        EditText = self.Users_table.item(item)
+        values = EditText['values']
+        id = EditText['text']
+        if len(values) > 0:
+            self.DeleteUsers.configure(state="disable")
+            self.UsersAdminat.pack(fill=X)
+            AllTextBoxes = {
+                    "values[0]":self.UsersName ,
+                    "values[1]":self.UserPass ,
+                    "values[2]":self.UserPersonalName ,
+                    "values[3]":self.Userqustion
+                }
+            
+            for textbox, data in zip(AllTextBoxes.values(),values):
+                textbox.insertIn(data)
+            
+            def EditUser(self , id):
+                startEdit= True
+                
+                # check is textboxes not empty
+                AllTextBoxes = {
+                    "اسم المستخدم":self.UsersName ,
+                    "كلمة المرور":self.UserPass ,
+                    "الاسم الشخصي":self.UserPersonalName ,
+                    "سؤال الامان":self.Userqustion ,
+                }
+                for key , TextBox in AllTextBoxes.items():
+                    if TextBox.IsEmpty():
+                        messagebox.showerror("ادخال خاطئ" , f"{key} الرجاء ادخال")
+                        startSave = False
+                        break
+                
+                
+                #check is user name not in
+                sqlOne = f"SELECT * FROM `users` WHERE UserName='{self.UsersName.get()}' AND NOT id='{id}';"
+                query = self.databeasCommands.getDataFromDatabeas(sqlOne)
+                rows = query.fetchall()
+                if len(rows) > 0:
+                    startEdit = False
+                    messagebox.showerror("خطأ" , "اسم المستخدم موجود بالفعل")
+                
+                # start save data if All condetions ok
+                if startEdit:
+                    if messagebox.askyesno("تأكيد" ,"هل انت متاكد من انك تريد تعديل"):
+                        sql = f"UPDATE users SET `UserName`='{self.UsersName.get()}',`password`='{self.UserPass.get()}',`question`='{self.Userqustion.get()}',`fullName`='{self.UserPersonalName.get()}' WHERE id='{id}';"
+                        self.databeasCommands.getDataFromDatabeas(sql)
+                        self.deleteItems(self.Users_table)
+                        self.ShowUsersData()
+                        messagebox.showinfo("تأكيد" , "تم التعديل بنجاح")
+                        
+            
+            # save data when user press this button in screen
+            self.SaveUserData.configure(command=lambda:EditUser(self , id))
+            # cancel Insert new user 
+            self.CancelInsert.configure(command=lambda:self.UsersAdminat.pack_forget())
+    # select item in tree to delete it
+    def OnUserSelectItemToDelete(self ,event):
+        self.UsersAdminat.pack_forget()
+        # delete user when user press delete
+        def deleteUser(self):
+            if messagebox.askyesno("تأكيد" , "هل انت متأكد من انك تريد حذف هذا المستخدم"):
+                item = self.Users_table.focus()
+                EditText = self.Users_table.item(item)
+                id = EditText['text']
+                if len(self.Users_table.get_children()) > 1:
+                    query = self.databeasCommands.getDataFromDatabeas(f"DELETE FROM users WHERE id={id}")
+                    messagebox.showinfo("تأكيد" , "تم الحذف بنجاح")
+                    self.Users_table.delete(item)
+                    self.DeleteUsers.configure(state="disable")
+                else:
+                    self.DeleteUsers.configure(state="disable")
+                    messagebox.showerror("تحذير" , "لا يمكن حذف كل الحسابات يجب ترك واحد على الاقل")
+        self.DeleteUsers.configure(state="normal" , command=lambda:deleteUser(self))
+    # insert new user 
+    def InsertNewUser(self):
+        self.UsersAdminat.pack(fill=X)
+        #Save Data that inserted in textBoxes
+        def SaveNewUser(self):
+            startSave = True
+            AllTextBoxes = {
+                "اسم المستخدم":self.UsersName ,
+                "كلمة المرور":self.UserPass ,
+                "الاسم الشخصي":self.UserPersonalName ,
+                "سؤال الامان":self.Userqustion ,
+            }
+            for key , TextBox in AllTextBoxes.items():
+                if TextBox.IsEmpty():
+                    messagebox.showerror("ادخال خاطئ" , f"{key} الرجاء ادخال")
+                    startSave = False
+                    break
+            
+            sql = f"SELECT * FROM `users` WHERE UserName='{self.UsersName.get()}';"
+            query = self.databeasCommands.getDataFromDatabeas(sql)
+            rows = query.fetchall()
+            if len(rows) > 0:
+                startSave = False
+                messagebox.showerror("خطأ" , "اسم المستخدم موجود بالفعل")
+            if startSave:
+                if messagebox.askyesno("تأكيد" ,"هل انت متاكد من انك تريد اضافة مستخدم"):
+                    sql = f"INSERT INTO users (UserName,password,question,fullName)VALUES('{self.UsersName.get()}','{self.UserPass.get()}','{self.Userqustion.get()}','{self.UserPersonalName.get()}');"
+                    self.databeasCommands.getDataFromDatabeas(sql)
+                    self.deleteItems(self.Users_table)
+                    self.ShowUsersData()
+                    self.UsersAdminat.pack_forget()
+                    messagebox.showinfo("تأكيد" , "تم الاضافة بنجاح")
+        self.SaveUserData.configure(command=lambda:SaveNewUser(self))
+        # cancel Insert new user 
+        self.CancelInsert.configure(command=lambda:self.UsersAdminat.pack_forget())
+    # show users data in users screen
+    def ShowUsersData(self):
+        query = self.databeasCommands.getDataFromDatabeas("SELECT * FROM users")
+        rows = query.fetchall()
+        if len(rows) > 0:
+            for Data in rows:
+                data = (Data[1] , Data[2] , Data[3] , Data[4])
+                self.Users_table.insert(parent='', index='end', text=f'{Data[0]}', values=data)
+    # show Users screen when this def works
+    def UsersInfoUi(self):
+        # delete screen that showd
+        try:self.changeScreen()
+        except:pass
+        
+        # convert title of screen 
+        self.MainTitleInScreen.configure(text = "ادارة بيانات المستخدمين")
+        
+        # icons of this ui 
+        search_icon = self.get_image("icons8-search-48.png" , "icons",30,30)
+        look_icon = self.get_image("icons8-password-48.png" , "icons",30,30)
+        user_icon = self.get_image("icons8-user-48.png" , "icons",30,30)
+        Name = self.get_image("icons8-name-48.png" , "icons",30,30)
+        question = self.get_image("icons8-question-48.png" , "icons",30,30)
+        # ============== main Frame of Users Ui ==============! 
+        UsersUiFrame = Frame(self.FatherOfAllScreen , bg="#e7dfdf")
+        UsersUiFrame.pack(fill="both")
+        
+        
+        #Search block bytton and textbox
+        
+        SearchBlock = CTkFrame(UsersUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        SearchBlock.pack(fill=X  , ipadx=10 , ipady=20)
+        
+        #search button
+        
+        self.SearchButton = CTkButton(SearchBlock , text="بحث" , width=60, font=("Segoe UI Semilight" , 10 , "bold"))
+        self.SearchButton.pack(side=RIGHT , ipady=10 , padx=10)
+        
+        # search textbox
+        
+        self.searchTextBox = TextBox(master=SearchBlock ,placeholder="... بحث عن مستخدم",
+                width =200 ,icon= search_icon ,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1 , side=RIGHT)
+        
+        # Delete Users Button
+        self.DeleteUsers = CTkButton(SearchBlock , state="disable" , text="حذف مستخدم" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.DeleteUsers.pack(side=LEFT , ipady=10, padx=10)
+        
+        # Add Users Button
+        self.InsertUsers = CTkButton(SearchBlock, command=lambda:self.InsertNewUser(), text="اضافة مستخدم" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.InsertUsers.pack(side=LEFT , ipady=10, padx=10)
+        
+       
+        # ============== TreeView in main Frame of Users Ui ==============! 
+        
+        self.Users_table = ttk.Treeview(UsersUiFrame)
+        self.Users_table['columns'] = ('#1', '#2', '#3' , '#4' , '#5')
+        
+        self.Users_table.heading('#0', text='ID' , anchor=CENTER)
+        self.Users_table.heading('#1', text='اسم المستخدم' , anchor=CENTER)
+        self.Users_table.heading('#2', text='كلمة المرور' , anchor=CENTER)
+        self.Users_table.heading('#3', text='الاسم الشخصي' , anchor=CENTER)
+        self.Users_table.heading('#4', text='سؤال الامان' , anchor=CENTER)
+
+        # تحديد عرض الأعمدة
+        self.Users_table.column('#0', width=60, stretch=True ,minwidth=50, anchor=CENTER)  
+        self.Users_table.column('#1', width=240 ,minwidth=50, anchor=CENTER)
+        self.Users_table.column('#2', width=200 ,minwidth=50, anchor=CENTER)
+        self.Users_table.column('#3', width=200 ,minwidth=50, anchor=CENTER)
+        self.Users_table.column('#4', width=200 ,minwidth=50, anchor=CENTER)
+        
+        self.Users_table.pack(fill=X , pady=20)
+        self.Users_table.bind("<Double-1>", lambda x:self.EditUserData())
+        self.Users_table.bind("<<TreeviewSelect>>",self.OnUserSelectItemToDelete )
+        # Users Adminate Frame section bottom 
+        self.UsersAdminat = Frame(UsersUiFrame)
+        
+        #First side in  bottom section
+        FirstSide = Frame(self.UsersAdminat)
+        FirstSide.pack(side=RIGHT , padx=10)
+        
+        # User User Name TextBox
+        self.UsersName = TextBox(master=FirstSide ,placeholder="اسم المستخدم",
+                width =250 ,icon=user_icon,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=5, padx=5)
+        
+        # User password TextBox
+        self.UserPass = TextBox(master=FirstSide ,placeholder="كلمة المرور",
+                width =250 ,icon= look_icon ,color="#003069",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=10, padx=5)
+        
+        
+        
+        
+        #second side in  bottom section
+        SecondSide = Frame(self.UsersAdminat)
+        SecondSide.pack(side=RIGHT)
+        
+        # User personal name TextBox
+        self.UserPersonalName= TextBox(master=SecondSide ,placeholder="الاسم الشخصي",
+                width =250 ,icon= Name  ,color="#003069",type="string",
+                placeholder_text="passowrd",border_color="#a6a6a6",
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=5, padx=5)
+        
+        # User question scurity TextBox
+        self.Userqustion = TextBox(master=SecondSide ,placeholder="سؤال الامان",
+                width =250 ,icon= question ,color="#003069",type="string",
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#e7dfdf",ipadx=2 , ipady=1, pady=10, padx=5  )
+
+
+
+        #Fourth side in  bottom section
+        FourthSide = Frame(self.UsersAdminat)
+        FourthSide.pack(side=LEFT)
+        
+        # Save inser Data Button
+        self.SaveUserData = CTkButton(FourthSide , text="حفظ" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.SaveUserData.pack(pady=10 , padx=10 ,ipady=10)
+        
+        # Cancel inser Button
+        self.CancelInsert = CTkButton(FourthSide , text="إلغاء" , width=150, font=("Segoe UI Semilight" , 10 , "bold" ))
+        self.CancelInsert.pack(pady=10 , ipady=10)
+        
+        #show user accounts in users ui
+        self.ShowUsersData()
+    
+    
+    
+#======================= databeas informations Ui And commands ==================!
+    # save databeas connections info
+    def SaveDataBeasInformations(self):
+        startSave = True
+        DataOfDatabeas = {
+            "الرابط" : self.DataBeasUrlTextBox,
+            "كلمة المرور" : self.DataBeasPassTextBox,
+            "اسم قاعدة البيانات": self.DataBeasNameTextBox,
+            "اسم المستخدم":self.DataBeasUserNameTextBox
+        }
+        
+        for key , TextBox in  DataOfDatabeas.items():
+            if TextBox.IsEmpty():
+                messagebox.showinfo("خطا في الادخال"  , f"الرجاء ادخال {key}")
+                startSave = False
+                break
+        if startSave:
+            if messagebox.askyesno("تأكيد" , "هل انت متأكد من انك تريد حفظ البيانات"):
+                loader , Label = self.ShowCenterLoader()
+                ListOfData = [ self.DataBeasUrlTextBox.get() , self.DataBeasUserNameTextBox.get(),
+                                self.DataBeasPassTextBox.get() , self.DataBeasNameTextBox.get()]
+                CheckInBackground =threading.Thread(target=self.databeasCommands.InsertDataBeasInfo , args=(ListOfData , loader , Label))
+                CheckInBackground.start()
+                self.after(6000 ,lambda:self.ShowDataBeasInfoIn())
+    # delete databeas info from local databeas
+    def deleteDatabeasInfo(self):
+        succes = self.databeasCommands.getDataFromDatabeas("SELECT * FROM databeas;")
+        query = self.databeasCommands.getDataFromDatabeas("DELETE FROM databeas;")
+        if succes.rowcount > 0:
+            self.ShowDataBeasInfoIn()
+            messagebox.showinfo("تأكيد" , "تم الحذف بنجاح")
+        else:messagebox.showinfo("تأكيد" , "الرجاء ادخال بيانات اولا")
+    #show databeas info in databeas screen       
+    def ShowDataBeasInfoIn(self):
+        query = self.databeasCommands.getDataFromDatabeas("SELECT * FROM databeas")
+        rows = query.fetchall()
+        if len(rows) > 0:
+            self.DatabeasUrl.Label.configure(text=rows[0][1])
+            self.DatabeasUserName.Label.configure(text=rows[0][2])
+            self.DatabeasPass.Label.configure(text=rows[0][3])
+            self.DatabeasName.Label.configure(text=rows[0][4])
+        else:
+            self.DatabeasUrl.Label.configure(text="API")
+            self.DatabeasUserName.Label.configure(text="اسم المستخدم")
+            self.DatabeasPass.Label.configure(text="كلمة المرور")
+            self.DatabeasName.Label.configure(text="اسم قاعدة البيانات")
+    # show Users screen when this def works
+    def DataBeasInfoUi(self):
+        # delete screen that showd
+        try:self.changeScreen()
+        except:pass
+        
+        # convert title of screen 
+        self.MainTitleInScreen.configure(text = "ادارة بيانات قاعدة البيانات")
+        
+        # icons of this ui 
+        DBUrl_icon = self.get_image("link.png" , "icons",20,20)
+        PasswordDB_icon = self.get_image("key (1).png" , "icons",20,20)
+        DBApi_icon = self.get_image("icons8-api-48.png" , "icons",30,30)
+        DBName_icon = self.get_image("icons8-database-48.png" , "icons",30,30)
+        
+        # ============== main Frame of Users Ui ==============! 
+        UsersUiFrame = Frame(self.FatherOfAllScreen , bg="#e7dfdf")
+        UsersUiFrame.pack(fill="both")
+        
+        
+        #top side block button and textbox
+        ShowDbInfoBlock = CTkFrame(UsersUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        ShowDbInfoBlock.pack(ipadx=10 , ipady=20 , fill=X)
+        
+        
+        #======================= left side from top side frame ==================!
+        LeftSidelBlock = CTkFrame(ShowDbInfoBlock , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        LeftSidelBlock.pack(side=LEFT , padx=10)
+        
+        # show databeas url
+        self.DatabeasUrl = Label_Icon(master=LeftSidelBlock , 
+                                            text="API", 
+                                            width =320 , icon= DBApi_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        
+        # show databeas  name
+        self.DatabeasName = Label_Icon(master=LeftSidelBlock , 
+                                            text="اسم قاعدة البيانات", 
+                                            width =320 , icon= DBName_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        #=================== left side from top side frame =============!
+        RightSidelBlock = CTkFrame(ShowDbInfoBlock , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        RightSidelBlock.pack(side=RIGHT , padx=10)
+        
+        
+        # show databeas user name
+        self.DatabeasUserName = Label_Icon(master=RightSidelBlock , 
+                                            text="اسم المتخدم", 
+                                            width =320 , icon= DBUrl_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        # show databeas Password
+        self.DatabeasPass = Label_Icon(master=RightSidelBlock , 
+                                            text="كلمة المرور", 
+                                            width =320 , icon= PasswordDB_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+# ========================= second side in databeas screen ======================!
+
+        # text to descrip what will user do
+        descrip = Label(UsersUiFrame , fg="#003069" , text="قم بتعبئة بيانات الاتصال الخاصة بقاعدة البيانات",
+                        font=("Segoe UI Semilight" , 12 , "bold") , bg="#e7dfdf"
+                        )
+        descrip.pack()
+        
+        
+        #=================== Center side from bottom side frame =============!
+        CenterBottomSidelBlock = CTkFrame(UsersUiFrame , fg_color="#e7dfdf" , border_width=0 )
+        CenterBottomSidelBlock.pack(pady=10 ,fill=X) 
+        
+        
+        # delete databeas info
+        self.DeletDataBeasInfo = CTkButton(CenterBottomSidelBlock , 
+                                           text="حذف" ,width=150,
+                                           font=("Segoe UI Semilight" , 12 , "bold")
+                                           )
+        
+        self.DeletDataBeasInfo.pack(side=RIGHT , pady=10 , padx=10, ipady=10)
+        self.DeletDataBeasInfo.configure(command=lambda:self.deleteDatabeasInfo())
+        
+        # save databeas info button
+        self.SaveDataBeasInfo = CTkButton(CenterBottomSidelBlock , 
+                                           text="حفظ" ,width=150,
+                                           font=("Segoe UI Semilight" , 12 , "bold"),
+                                           
+                                           )
+        self.SaveDataBeasInfo.pack(side=RIGHT , pady=10, ipady=10)
+        
+        #=================== left side from bottom side frame =============!
+        BottomLeftSidelBlock = CTkFrame(UsersUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        BottomLeftSidelBlock.pack( side=LEFT , padx=10, pady=15)
+        
+        
+        # databeas url textbox
+        self.DataBeasUrlTextBox = TextBox(master=BottomLeftSidelBlock ,placeholder=" API رابط",
+                width =300 ,icon= DBApi_icon ,color="#003069",padx=40,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#FCF5ED",ipadx=2 , ipady=1 , pady=15 )
+        
+        
+        # databeas name textbox
+        self.DataBeasNameTextBox = TextBox(master=BottomLeftSidelBlock ,placeholder="اسم قاعدة البيانات",
+                width =300 ,icon= DBName_icon ,color="#003069",padx=40,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#FCF5ED",ipadx=2 , ipady=1 , pady=15 )
+        
+        
+        
+        #=================== left side from bottom side frame =============!
+        BottomRightSidelBlock = CTkFrame(UsersUiFrame , fg_color="#e7dfdf" , border_width=1 , border_color="#a6a6a6")
+        BottomRightSidelBlock.pack(side=RIGHT , padx=10, pady=15)
+        
+        # databeas user name textbox
+        self.DataBeasUserNameTextBox = TextBox(master=BottomRightSidelBlock ,placeholder="اسم المتخدم",
+                width =300 ,icon= DBUrl_icon ,color="#003069",padx=40,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#FCF5ED",ipadx=2 , ipady=1 , pady=15)
+        
+        
+        
+        # databeas password textbox
+        self.DataBeasPassTextBox = TextBox(master=BottomRightSidelBlock ,placeholder="كلمة المرور",
+                width =300 ,icon= PasswordDB_icon ,color="#003069",padx=40,
+                placeholder_text="passowrd",border_color="#a6a6a6" ,
+                border_width=1 , bg="#FCF5ED",ipadx=2 , ipady=1 , pady=15)
+        
+        
+        self.SaveDataBeasInfo.configure(command=lambda:self.SaveDataBeasInformations())
+        
+        self.ShowDataBeasInfoIn()
+        # self.SaveDataBeasInfo.button.configure(command=lambda:self.UsersInfoUi())
+    
+    
+# ===================== some functions ================!
+    #show user full name that user login succes
+    def ShowUserName(self):
+        self.UserLoginingIn.configure(text=self.UserName)
+    #creat connection with google to check internet
+    def check_internet_connection():
+        try:
+            # حاول الاتصال بمضيف معروف مثل google.com عبر المنفذ 80
+            client = create_connection(("www.google.com", 80) , timeout=20)
+            client.close()
+            return True
+        except:
+            return False
+    # check internet connection and show loader
+    def Connect_WithEnterNet(self):
+        # get loader Label
+        LoaderLabel = self.ConnectionState.Label_icon
+        #get loader text and chenge the text
+        LoaserText = self.ConnectionState.Label
+        LoaserText.configure(text="... جاري الاتصال")
+        # init loader gif in loader Label
+        Loader = AnimatedImagePopup(self , LoaderLabel , 30 , 30 , "system-regular-102-wifi.gif" ,"icons8-wired-network-connection-48.png" , "icons8-wifi-48.png" )
+        # start show loader gif in loader Label
+        Loader.start()
+        
+        if Home_UI.check_internet_connection():
+            Loader.image_tow = True
+            Loader.stop()
+            LoaserText.configure(text="متصل")
+            self.after(20000 , lambda:self.Connect_WithEnterNet())
+        else:
+            Loader.image_tow = False
+            Loader.stop()
+            LoaserText.configure(text="لا يوجد اتصال")
+            self.after(20000 , lambda:self.Connect_WithEnterNet())
+    
+    # show home screen when you have an object for this class
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        #========= icons of the Homw Ui =============!
+        icon_of_App = self.get_image("small_bg-removebg-preview.png" , "icons",120,70)
+        driver_icon = self.get_image("icons8-driver-license-48.png" , "icons",30,30)
+        report_icon = self.get_image("icons8-graph-report-48.png" , "icons",30,30)
+        connectionState_icon = self.get_image("icons8-wifi-48.png" , "icons",30,30)
+        Users_icon = self.get_image("icons8-users-48.png" , "icons",30,30)
+        User_icon = self.get_image("icons8-user-48.png" , "icons",30,30)
+        LogOut_icon = self.get_image("icons8-logout-48.png" , "icons",30,30)
+        DBName_icon = self.get_image("icons8-database-48.png" , "icons",30,30)
+        
+        # background color of home screen
+        self.config(bg="#e7dfdf")
+        
+        #========= navbar and icon inside it ==============!
+        NavBar_Frame = CTkFrame(self , fg_color="#00224b" , border_color="#B3A492" , border_width=1)
+        NavBar_Frame.pack(fill=X , side=TOP)
+        
+        App_icon = Label(NavBar_Frame,
+                         height=60,
+                         width=80,
+                         image=icon_of_App ,
+                         bg="#001e42" , 
+                         borderwidth=1 , 
+                         highlightbackground="#001e42" , 
+                         highlightthickness=4,
+                         relief=GROOVE
+                         )
+        App_icon.pack(fill=Y , side=RIGHT)
+        App_icon.imtk = icon_of_App
+        
+        #========= side menu and buttons inside it ==============!001e42
+        
+        self.SideBarMenue = CTkFrame(self , fg_color="#FCF5ED" , border_color="#003069" , border_width=2)
+        self.SideBarMenue.pack(side=RIGHT , fill=Y)
+        
+        
+                #========= Information Frame in side menu ==============!001e42
+        InfoFrame = CTkFrame(self.SideBarMenue , fg_color="#FCF5ED" , border_color="#B2C8BA" , border_width=2)
+        InfoFrame.pack(padx=5,pady=15)
+        
+        #show the connection status
+        self.ConnectionState = Label_Icon(master=InfoFrame , 
+                                            text="حالة الاتصال", 
+                                            width =180 , icon= connectionState_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        # show if there is new Report
+        self.ReportingStatus = Label_Icon(master=InfoFrame , 
+                                            text="البلاغات الواردة", 
+                                            width =180 , icon= report_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        #show the user loging in right now
+        self.UserLoginingIn = Label_Icon(master=InfoFrame , 
+                                            text="اسم المستخدم", 
+                                            width =180 , icon= User_icon,
+                                            border_width=0 , bg="#FCF5ED" ,
+                                            color="#02446f",
+                                            pady=10,padx=10,ipadx=4,
+                                            font=("Segoe UI Semilight" , 12 , "bold")
+                                            )
+        
+        # Report screen button
+        self.ReportButton = Button_Icon(master=self.SideBarMenue , 
+                                            text="البلاغات", 
+                                            width =200 , icon= report_icon,
+                                            border_color="#B2C8BA" ,
+                                            border_width=1 , bg="#02446f" ,
+                                            color="#fff",
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        self.ReportButton.button.configure(command=lambda:self.AllReportingUi())
+        
+        #Drivers screen button
+        self.DriverInfoButton = Button_Icon(master=self.SideBarMenue , 
+                                            text="ادارة بيانات السائقين", 
+                                            width =200 , icon= driver_icon,
+                                            border_color="#B2C8BA" ,
+                                            border_width=1 , bg="#02446f" ,
+                                            color="#fff", 
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        self.DriverInfoButton.button.configure(command=lambda:self.DriverInfoUi())
+        
+        
+        self.UsersButoon = Button_Icon(master=self.SideBarMenue , 
+                                            text="ادارة المستخدمين", 
+                                            width =200 , icon= Users_icon,
+                                            border_color="#B2C8BA" ,
+                                            border_width=1 , bg="#02446f" ,
+                                            color="#fff", 
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        self.UsersButoon.button.configure(command=lambda:self.UsersInfoUi())
+        
+        #databeas Screen button
+        self.DatabeasConnectionButton = Button_Icon(master=self.SideBarMenue , 
+                                            text="بيانات الاتصال بقاعدة البيانات", 
+                                            width =200 , icon= DBName_icon,
+                                            border_color="#B3A492" ,
+                                            border_width=1 , bg="#02446f" ,
+                                            color="#fff", 
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        self.DatabeasConnectionButton.button.configure(command=lambda:self.DataBeasInfoUi())
+        
+        #log out button
+        self.LogOutButton = Button_Icon(master=self.SideBarMenue , 
+                                            text="تسجيل الخروج", 
+                                            width =200 , icon= LogOut_icon,
+                                            border_color="#B3A492" ,
+                                            border_width=1 , bg="#02446f" ,
+                                            color="#fff", 
+                                            pady=10,padx=10,ipadx=4
+                                            )
+        
+        
+        # Main screen in home Ui
+        self.FatherOfAllScreen = Frame(self  , bg="#e7dfdf")
+        self.FatherOfAllScreen.pack(side=RIGHT , fill="both")
+        # Main title in home Ui
+        self.MainTitleInScreen = CTkLabel(self.FatherOfAllScreen , text="البلاغات" 
+                                          , width=895 , fg_color="#02446f" 
+                                          , text_color="#FCF5ED"
+                                          ,font=("Segoe UI Semilight" , 0 , "bold")
+                                          )
+        self.MainTitleInScreen.pack(fill=X , ipady=10)
+        
+        # start show first screen
+        self.AllReportingUi()
+        
+        # connection with internet
+        self.Connect_WithEnterNet()
+    
+    # log out from the App when you press logout button
+    def LogOut(self , LoginUI):
+        self.pack_forget()
+        LoginUI.pack(side=LEFT , fill="both")
+          
+#============== Main Ui inside this class All classes of User interface =============!
+class Main_Ui():
+    def __init__(self , Window):
+        self.window = Window
+        SQL , connect = Databeas_.checkDatabeasIsExsist()
+        self.home_Ui = Home_UI(Window)
+        
+        query = SQL.execute("SELECT * FROM users")
+        rows = query.fetchall()
+        connect.commit()
+        if  len(rows) == 0 :
+            Login_window_left_side_frame = FirsUI(Window)
+            Login_window_left_side_frame.HomeUi = self.home_Ui
+            Login_window_left_side_frame.pack(side=LEFT , fill="both")
+            self.home_Ui.LogOutButton.button.configure(command=lambda:sys.exit())
+        else:
+            # show login screen         
+            Login_window_left_side_frame = LoginUi(Window)
+            Login_window_left_side_frame.HomeUI = self.home_Ui
+            Login_window_left_side_frame.pack(side=LEFT , fill="both")
+            # init Login and logout buttons onclick 
+            self.home_Ui.LogOutButton.button.configure(command=lambda:self.home_Ui.LogOut(Login_window_left_side_frame))
+            
+        
+        
+        # Window.after(10000 , lambda:Loader.stop())
+        
+         
+        
+        
